@@ -7,13 +7,15 @@ const collectionSchema = new mongoose.Schema({
     },
     amount: {
         type: Number,
+        required: true
     },
     category: {
         type: String,
-        enum: ["groceries", "bills", "entertainment", "transportation", "healthcare", "education", "personal", "travel", "food","other"]
+        enum: ["groceries", "bills", "entertainment", "transportation", "healthcare", "education", "personal", "travel", "food", "other"]
     },
     date: {
         type: Date,
+        required: true
     },
     createdAt: {
         type: Date,
@@ -23,4 +25,4 @@ const collectionSchema = new mongoose.Schema({
 });
 
 
-export default mongoose.model("Collection", collectionSchema);
+export default mongoose.model("Collection", collectionSchema); 

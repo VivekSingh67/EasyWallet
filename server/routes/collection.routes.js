@@ -3,7 +3,7 @@ import createCollection from "../controller/Collection.controller.js";
 
 const router = express.Router();
 
-router.post("/collection",createCollection)
+router.post("/withdraw",createCollection)
 
 
 export default router
