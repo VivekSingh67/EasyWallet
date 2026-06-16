@@ -1,6 +1,6 @@
-import mongoose from "mongoose";
+const mongoose = require("mongoose");
 
-const collectionSchema = new mongoose.Schema({
+const withdrawnSchema = new mongoose.Schema({
     title: {
         type: String,
         required: true
@@ -21,8 +21,12 @@ const collectionSchema = new mongoose.Schema({
         type: Date,
         default: Date.now
     },
+    updatedAt: {
+        type: Date,
+        default: Date.now
+    }
 
 });
 
 
-export default mongoose.model("Collection", collectionSchema); 
+module.exports = mongoose.model("Withdrawn", withdrawnSchema); 

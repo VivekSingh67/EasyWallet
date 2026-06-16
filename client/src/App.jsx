@@ -1,24 +1,104 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import './App.css';
 import walletService from './service/wallet';
+import fundService from './service/fund';
 
 function App() {
   const [activeModal, setActiveModal] = useState(null);
-  const [formData, setFormData] = useState({
+  const [editData, setEditData] = useState(null);
+  const [category, setCategory] = useState([]);
+
+  const [fundData, setFundData] = useState({
+    title: "",
+    amount: "",
+    date: ""
+  });
+
+  const [walletData, setWalletData] = useState({
     title: "",
     amount: "",
     category: "",
     date: ""
-  })
+  });
+  const [withdrawnMoneyData, setWithdrawnMoneyData] = useState([]);
+  const [addfunds, setAddFunds] = useState([]);
 
-  const submitWithdraw = async()=>{
-    const res = await walletService.withdrawMoney(formData);
-    if(res){
-      closeModal();
+  useEffect(() => {
+    fetchWithdrawnMoneyData();
+    fetchAddFundsData();
+    fetchCategories();
+  }, [])
+
+  const handleFundSubmit = async () => {
+    const res = await fundService.addFund(fundData)
+    if (res.success) {
+      fetchAddFundsData();
+      closeModal()
     }
   }
 
-  const closeModal = () => setActiveModal(null);
+  const fetchCategories = async () => {
+    const res = await walletService.getCategories();
+    setCategory(res);
+  };
+
+  const fetchWithdrawnMoneyData = async () => {
+    const res = await walletService.getWithdrawnMoneyData();
+    setWithdrawnMoneyData(res.data || []);
+  }
+
+  const fetchAddFundsData = async () => {
+    const res = await fundService.getFunds();
+    setAddFunds(res.funds || []);
+  }
+
+  const submitWithdraw = async () => {
+    await walletService.withdrawMoney(walletData);
+    fetchWithdrawnMoneyData();
+    closeModal();
+  }
+
+  const handleEditClick = (item) => {
+    let formattedDate = '';
+    if (item.date) {
+      formattedDate = new Date(item.date).toISOString().split('T')[0];
+    }
+    setEditData({ ...item, date: formattedDate });
+    setActiveModal('edit');
+  };
+
+  const submitEdit = async () => {
+    if (editData.type === 'addFund') {
+      const res = await fundService.editFund(editData._id, editData);
+      if (res.success) {
+        fetchAddFundsData();
+        closeModal();
+      }
+    } else if (editData.type === 'withdraw') {
+      const res = await walletService.editWithdrawMoney(editData._id, editData);
+      if (res.success) {
+        fetchWithdrawnMoneyData();
+        closeModal();
+      }
+    }
+  };
+
+  const handleDeleteClick = async (item) => {
+    if (confirm("Are you sure you want to delete this transaction?")) {
+      if (item.type === 'addFund') {
+        await fundService.deleteFund(item._id);
+        fetchAddFundsData();
+      } else if (item.type === 'withdraw') {
+        await walletService.deleteWithdrawnMoneyData(item._id);
+        fetchWithdrawnMoneyData();
+      }
+    }
+  };
+
+  const closeModal = () => {
+    setActiveModal(null);
+    setEditData(null);
+  };
 
   const renderModal = () => {
     if (!activeModal) return null;
@@ -30,29 +110,48 @@ function App() {
       title = "Add Funds";
       content = (
         <div className="modal-form">
-          <input type="text" placeholder="Title (e.g., Salary, Transfer)" className="modal-input" />
-          <input type="number" placeholder="Enter amount to add (₹)" className="modal-input" />
-          <button className="btn-primary full-width" onClick={closeModal}>Confirm</button>
+          <input type="text" placeholder="Title (e.g., Salary, Transfer)" onChange={(e) => setFundData({ ...fundData, title: e.target.value })} className="modal-input" />
+          <input type="number" placeholder="Enter amount to add (₹)" onChange={(e) => setFundData({ ...fundData, amount: e.target.value })} className="modal-input" />
+          <input type="date" className="modal-input" onChange={(e) => setFundData({ ...fundData, date: e.target.value })} />
+          <button className="btn-primary full-width" onClick={handleFundSubmit}>Confirm</button>
         </div>
       );
     } else if (activeModal === 'withdraw') {
       title = "Withdraw";
       content = (
         <div className="modal-form">
-          <input type="text" value={formData.title} onChange={(e)=>setFormData({...formData,title:e.target.value})} placeholder="Title (e.g., Rent, Groceries)" className="modal-input" />
-          <input type="number" value={formData.amount} onChange={(e)=>setFormData({...formData,amount:e.target.value})} placeholder="Enter amount to withdraw (₹)" className="modal-input" />
-          <input type="text" value={formData.category} onChange={(e)=>setFormData({...formData,category:e.target.value})} placeholder="Category (e.g., Food, Bills)" className="modal-input" />
-          <input type="date" value={formData.date} onChange={(e)=>setFormData({...formData,date:e.target.value})} className="modal-input" />
+          <input type="text" onChange={(e) => setWalletData({ ...walletData, title: e.target.value })} placeholder="Title (e.g., Rent, Groceries)" className="modal-input" />
+          <input type="number" onChange={(e) => setWalletData({ ...walletData, amount: e.target.value })} placeholder="Enter amount to withdraw (₹)" className="modal-input" />
+          <select onChange={(e) => setWalletData({ ...walletData, category: e.target.value })} className="modal-input">
+            <option value="">Select Category</option>
+            {
+              category.map((cat) => {
+                return (
+                  <option key={cat} value={cat}>{cat}</option>
+                )
+              })
+            }
+          </select>
+          <input type="date" onChange={(e) => setWalletData({ ...walletData, date: e.target.value })} className="modal-input" />
           <button className="btn-primary full-width" onClick={submitWithdraw}>Confirm</button>
         </div>
       );
     } else if (activeModal === 'edit') {
-      title = "Edit Transaction";
+      title = editData?.type === 'addFund' ? "Edit Add Funds" : "Edit Withdraw";
       content = (
         <div className="modal-form">
-          <input type="text" placeholder="Transaction Title" className="modal-input" />
-          <input type="number" placeholder="Amount (₹)" className="modal-input" />
-          <button className="btn-primary full-width" onClick={closeModal}>Save Changes</button>
+          <input type="text" value={editData?.title || ''} onChange={(e) => setEditData({ ...editData, title: e.target.value })} placeholder="Transaction Title" className="modal-input" />
+          <input type="number" value={editData?.amount || ''} onChange={(e) => setEditData({ ...editData, amount: e.target.value })} placeholder="Amount (₹)" className="modal-input" />
+          {editData?.type === 'withdraw' && (
+            <select value={editData?.category || ''} onChange={(e) => setEditData({ ...editData, category: e.target.value })} className="modal-input">
+              <option value="">Select Category</option>
+              {category.map((cat) => (
+                <option key={cat} value={cat}>{cat}</option>
+              ))}
+            </select>
+          )}
+          <input type="date" value={editData?.date || ''} onChange={(e) => setEditData({ ...editData, date: e.target.value })} className="modal-input" />
+          <button className="btn-primary full-width" onClick={submitEdit}>Save Changes</button>
         </div>
       );
     }
@@ -80,7 +179,9 @@ function App() {
         <section className="balance-card">
           <div className="balance-info">
             <p className="subtitle">Available Balance</p>
-            <h2 className="balance">₹24,562.00</h2>
+            <h2 className="balance">
+              ₹{((addfunds || []).reduce((acc, curr) => acc + Number(curr.amount), 0) - (withdrawnMoneyData || []).reduce((acc, curr) => acc + Number(curr.amount), 0)).toFixed(2)}
+            </h2>
             <p className="account-number">Account: **** 4589</p>
           </div>
           <div className="balance-actions">
@@ -93,116 +194,27 @@ function App() {
           <div className="transactions-container">
             <table className="transactions-table">
               <tbody>
-                <tr>
-                  <td>
-                    <div className="tx-title">Direct Deposit - Salary</div>
-                    <div className="tx-date">Oct 15, 2026</div>
-                  </td>
-                  <td className="tx-amount positive">+₹4,200.00</td>
-                  <td className="tx-actions">
-                    <button className="icon-btn edit" title="Edit" onClick={() => setActiveModal('edit')}>✏️</button>
-                    <button className="icon-btn delete" title="Delete">🗑️</button>
-                  </td>
-                </tr>
-                <tr>
-                  <td>
-                    <div className="tx-title">Apple Store</div>
-                    <div className="tx-date">Oct 14, 2026</div>
-                  </td>
-                  <td className="tx-amount">-₹1,299.00</td>
-                  <td className="tx-actions">
-                    <button className="icon-btn edit" title="Edit" onClick={() => setActiveModal('edit')}>✏️</button>
-                    <button className="icon-btn delete" title="Delete">🗑️</button>
-                  </td>
-                </tr>
-                <tr>
-                  <td>
-                    <div className="tx-title">Netflix Subscription</div>
-                    <div className="tx-date">Oct 12, 2026</div>
-                  </td>
-                  <td className="tx-amount">-₹15.99</td>
-                  <td className="tx-actions">
-                    <button className="icon-btn edit" title="Edit" onClick={() => setActiveModal('edit')}>✏️</button>
-                    <button className="icon-btn delete" title="Delete">🗑️</button>
-                  </td>
-                </tr>
-                <tr>
-                  <td>
-                    <div className="tx-title">Transfer from Savings</div>
-                    <div className="tx-date">Oct 10, 2026</div>
-                  </td>
-                  <td className="tx-amount positive">+₹850.00</td>
-                  <td className="tx-actions">
-                    <button className="icon-btn edit" title="Edit" onClick={() => setActiveModal('edit')}>✏️</button>
-                    <button className="icon-btn delete" title="Delete">🗑️</button>
-                  </td>
-                </tr>
-                <tr>
-                  <td>
-                    <div className="tx-title">Amazon Prime</div>
-                    <div className="tx-date">Oct 09, 2026</div>
-                  </td>
-                  <td className="tx-amount">-₹120.00</td>
-                  <td className="tx-actions">
-                    <button className="icon-btn edit" title="Edit" onClick={() => setActiveModal('edit')}>✏️</button>
-                    <button className="icon-btn delete" title="Delete">🗑️</button>
-                  </td>
-                </tr>
-                <tr>
-                  <td>
-                    <div className="tx-title">Uber Ride</div>
-                    <div className="tx-date">Oct 08, 2026</div>
-                  </td>
-                  <td className="tx-amount">-₹45.50</td>
-                  <td className="tx-actions">
-                    <button className="icon-btn edit" title="Edit" onClick={() => setActiveModal('edit')}>✏️</button>
-                    <button className="icon-btn delete" title="Delete">🗑️</button>
-                  </td>
-                </tr>
-                <tr>
-                  <td>
-                    <div className="tx-title">Starbucks</div>
-                    <div className="tx-date">Oct 07, 2026</div>
-                  </td>
-                  <td className="tx-amount">-₹8.75</td>
-                  <td className="tx-actions">
-                    <button className="icon-btn edit" title="Edit" onClick={() => setActiveModal('edit')}>✏️</button>
-                    <button className="icon-btn delete" title="Delete">🗑️</button>
-                  </td>
-                </tr>
-                <tr>
-                  <td>
-                    <div className="tx-title">Freelance Payment</div>
-                    <div className="tx-date">Oct 05, 2026</div>
-                  </td>
-                  <td className="tx-amount positive">+₹1,500.00</td>
-                  <td className="tx-actions">
-                    <button className="icon-btn edit" title="Edit" onClick={() => setActiveModal('edit')}>✏️</button>
-                    <button className="icon-btn delete" title="Delete">🗑️</button>
-                  </td>
-                </tr>
-                <tr>
-                  <td>
-                    <div className="tx-title">Gym Membership</div>
-                    <div className="tx-date">Oct 01, 2026</div>
-                  </td>
-                  <td className="tx-amount">-₹60.00</td>
-                  <td className="tx-actions">
-                    <button className="icon-btn edit" title="Edit" onClick={() => setActiveModal('edit')}>✏️</button>
-                    <button className="icon-btn delete" title="Delete">🗑️</button>
-                  </td>
-                </tr>
-                <tr>
-                  <td>
-                    <div className="tx-title">Grocery Store</div>
-                    <div className="tx-date">Sep 28, 2026</div>
-                  </td>
-                  <td className="tx-amount">-₹210.30</td>
-                  <td className="tx-actions">
-                    <button className="icon-btn edit" title="Edit" onClick={() => setActiveModal('edit')}>✏️</button>
-                    <button className="icon-btn delete" title="Delete">🗑️</button>
-                  </td>
-                </tr>
+                {
+                  [...(withdrawnMoneyData || []).map(item => ({...item, type: 'withdraw'})), ...(addfunds || []).map(item => ({...item, type: 'addFund'}))]
+                  .sort((a, b) => new Date(b.date) - new Date(a.date))
+                  .map((item) => {
+                    return (
+                      <tr key={item._id}>
+                        <td>
+                          <div className="tx-title">{item.title}</div>
+                          <div className="tx-date">{new Date(item.date).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' })}</div>
+                        </td>
+                        <td className={`tx-amount ${item.type === 'addFund' ? 'positive' : ''}`}>
+                          {item.type === 'addFund' ? '+' : '-'}₹{item.amount}
+                        </td>
+                        <td className="tx-actions">
+                          <button className="icon-btn edit" title="Edit" onClick={() => handleEditClick(item)}>✏️</button>
+                          <button className="icon-btn delete" title="Delete" onClick={() => handleDeleteClick(item)}>🗑️</button>
+                        </td>
+                      </tr>
+                    )
+                  })
+                }
               </tbody>
             </table>
           </div>

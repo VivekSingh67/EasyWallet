@@ -1,17 +1,16 @@
-import express from 'express';
-import cors from 'cors';
-import path from "path";
-import { fileURLToPath } from "url";
-import dotenv from "dotenv";
-import ConnectDB from "./db/db.js"
+const express = require('express');
+const app = express();
+const cors = require('cors');
+const path = require('path');
+const dotenv = require("dotenv");
+const ConnectDB = require("./db/db.js")
 dotenv.config()
 ConnectDB()
-import collectionRouter from "./routes/collection.routes.js"
+const withDrawRouter = require("./routes/withDraw.routes.js")
+const fundRouter = require("./routes/Fund.routes.js")
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
-const app = express();
+
 app.use(cors(
     {
         origin: ["http://localhost:5173", "http://localhost:5174", "http://localhost:5000"],
@@ -23,7 +22,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }))
 app.use(express.static(path.join(__dirname, "public")))
 
-app.use('/api', collectionRouter)
+app.use('/api', withDrawRouter)
+app.use('/api', fundRouter)
 
-
-export default app;
+module.exports = app;
